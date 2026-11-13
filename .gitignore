@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# Data and model files (datasets come from their sources, weights live on Hugging Face)
+*.jsonl
+*.parquet
+*.safetensors
+*.bin
+data/
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
+
+# Build output
+*.zip
+node_modules/

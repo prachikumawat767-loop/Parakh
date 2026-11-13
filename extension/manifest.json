@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "Parakh – phone review X-ray",
+  "version": "0.6.0",
+  "description": "Reads the phone reviews on a Flipkart page and shows what they actually say: aspects, faults over time, and ratings from people like you.",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "http://localhost:7860/*",
+    "http://127.0.0.1:7860/*",
+    "https://*.hf.space/*",
+    "https://*.modal.run/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["https://www.flipkart.com/*"],
+      "js": ["reader.js", "panel.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": { "default_title": "Parakh settings", "default_popup": "popup.html" }
+}

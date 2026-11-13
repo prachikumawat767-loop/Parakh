@@ -1,0 +1,22 @@
+[
+  {"id": "r1", "rating": 5, "title": "Brilliant", "name": "Rohit Sharma", "date": "2 months ago",
+   "text": "Camera is excellent in daylight and the display is very bright. Battery backup is good, easily lasts a full day. Using it for 2 months now, no issues."},
+  {"id": "r2", "rating": 2, "title": "Not good", "name": "Aman Verma", "date": "Aug, 2026",
+   "text": "Phone heats up a lot while playing BGMI. After 3 months the battery drains very fast. Not happy with the performance for gaming."},
+  {"id": "r3", "rating": 1, "title": "Worst experience", "name": "Neha", "date": "Jul, 2026",
+   "text": "The phone stopped working after 4 months. Went to the service centre and they took 12 days for the repair. Worst service."},
+  {"id": "r4", "rating": 4, "title": "Value for money", "name": "Suresh K", "date": "1 month ago",
+   "text": "Bought this for my mother. Good value for money, sound is loud and clear. Display is nice for watching videos."},
+  {"id": "r5", "rating": 3, "title": "Okay phone", "name": "Priya", "date": "Sep, 2026",
+   "text": "After the latest update the phone hangs sometimes and the camera app lags. Display is good though."},
+  {"id": "r6", "rating": 2, "title": "Heating issue", "name": "Vikram", "date": "Jun, 2026",
+   "text": "Heavy heating while gaming, PUBG and COD both make it hot. Battery drains in 4 hours of games. Not worth it for gamers."},
+  {"id": "r7", "rating": 5, "title": "Awesome", "name": "Karan", "date": "3 months ago",
+   "text": "Using this phone for 3 months, performance is smooth and the camera is awesome. Better than my old Redmi Note 10 in every way."},
+  {"id": "r8", "rating": 4, "title": "Good", "name": "Anjali", "date": "Oct, 2026",
+   "text": "Nice phone for my father, basic use like calls and WhatsApp. Battery is good and the build feels solid."},
+  {"id": "r9", "rating": 1, "title": "Dead", "name": "Mohit", "date": "May, 2026",
+   "text": "Display got a green line after 2 months and then the phone died completely. Replacement took 15 days."},
+  {"id": "r10", "rating": 4, "title": "Good camera", "name": "Sneha", "date": "Oct, 2026",
+   "text": "Photos are great and the selfie camera is good. Charging is fast. Using it for 1 month."}
+]
