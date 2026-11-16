@@ -4,11 +4,13 @@
 
 A star rating tells you how someone felt on day one. The useful details are buried in the text: *"battery died after 3 months"*, *"heats up in BGMI"*, *"service centre took 12 days"*. Parakh fixes a schema first, then a small fine-tuned model (74M parameters, runs on a CPU) fills it for every review.
 
-| Extension panel on a live Flipkart page | One review taken apart | The JSON behind it |
-|---|---|---|
-| ![panel](docs/images/live-panel-infinix.png) | ![anatomy](docs/images/test-anatomy.png) | ![json](docs/images/live-json-redmi.png) |
+| Panel on a live Flipkart page | One review taken apart | Every review read | The JSON behind it |
+|---|---|---|---|
+| ![panel](docs/images/live-panel-nothing-phone.png) | ![breakdown](docs/images/live-breakdown-nothing-phone.png) | ![list](docs/images/live-review-list.png) | ![json](docs/images/live-json-nothing-phone.png) |
 
-*Left and right: real model on live flipkart.com. Middle: test page with sample reviews.*
+*All four: the real model on live flipkart.com (Nothing Phone 4a, 50 of 231 reviews, reweighted to the phone's star mix).*
+
+📄 **Project report:** [NLP_PBL_Team_Parakh_Final.pdf](docs/report/NLP_PBL_Team_Parakh_Final.pdf) ([Word version](docs/report/NLP_PBL_Team_Parakh_Final.docx))
 
 ---
 
@@ -17,6 +19,7 @@ A star rating tells you how someone felt on day one. The useful details are buri
 - **Side panel on Flipkart.** A one-line verdict, ratings from people like you (gamers, buying for parents…), praise vs complaints per aspect, and a chart of when problems show up after purchase.
 - **Tags under every store review.** `Battery issue after 90 days`, `Heating −`, `Repair, 12 days`, `use: gaming`, `long-term`. Hover a tag to see the words it came from.
 - **One review, taken apart.** Click *Breakdown ›*: each extracted field is highlighted in the review text, numbered, and linked to the field list. It also shows what a plain sentiment model would say ("Negative, 2 stars. That's all.") next to what Parakh pulls out ("A gamer. Unhappy with the heating. Battery got worse after 90 days.").
+- **Every review, not just the first few.** It reads about 50 reviews of the phone (pages are fetched in the background, up to 100), reweights them to the phone's real star mix, and lists all of them under *All N reviews read*, each with its own Breakdown. Reviews Flipkart loads while you scroll get tags too.
 - **API.** `POST /v1/extract`, `/v1/batch`, `/v1/analyze`, with interactive docs at `/docs`.
 
 ## How it works
@@ -78,7 +81,7 @@ backend/     FastAPI service: app.py (endpoints), postprocess.py (fixes after th
              aggregate.py (verdict, aspect bars, durability, people-like-me), modal_app.py (deploy)
 model/       Training and evaluation code (see model/README.md); weights are on Hugging Face
 tests/       Flipkart-like test pages + headless Chrome tests for the reader and the whole extension
-docs/        Screenshots and the product mockups (designed, not all built yet)
+docs/        report/ (final report, PDF + Word), images/ (live screenshots), mockups/ (designed, not all built)
 ```
 
 Model weights: [Prachi076/parakh-gliner2.5-small-lora](https://huggingface.co/Prachi076/parakh-gliner2.5-small-lora) (base: [fastino/gliner2.5-small-v1](https://huggingface.co/fastino/gliner2.5-small-v1)).
@@ -122,17 +125,29 @@ python tests/reader_test.py /tmp/fx                       # reader on 3 Flipkart
 python tests/e2e_test.py /tmp/fx /tmp/shots               # whole extension in headless Chrome
 ```
 
+## Live results on Flipkart
+
+| Phone | Reviews read | What Parakh showed |
+|---|---|---|
+| Nothing Phone 4a | 50 of 231 (5 pages), reweighted | "Liked for value and camera. About 2% of reviewers report a fault." Battery 67%, value 80%, camera 100%, display 76% positive |
+| Infinix Smart 20 | 40 (2 pages) | "Liked for value and display; complaints about battery." |
+| Redmi 15 5G | 20 (2 pages) | "long lasting" → battery +, *implied*; "best option" → value +, *implied* (neither category word is in the text) |
+
+A second run on the Nothing Phone (51 reviews, different pages served) gave "Mixed opinions, no clear standout": at this sample size results still move, which is why the panel prints the sample size and greys out aspects with fewer than 3 mentions.
+
 ## Design notes
 
 - **No Flipkart class names.** They are generated and change often, and Flipkart serves several layouts. The reader anchors on the "Verified Purchase" / "Certified Buyer" line and uses the order inside a card (rating and title, variant line, review text, name). It has been tested on three layouts.
 - **Fixes after the model are shown, not hidden.** Two model mistakes showed up on real reviews: heating complaints labelled as display (thermals had only 62 training examples), and non-phones read as phones ("BGMI", "a middle class family" as a previous phone). `postprocess.py` corrects these with rules and lists every change under *Changed after the model* in the review view. The accuracy numbers above are the model alone.
 
-  ![raw model output before the fix](docs/images/live-anatomy-redmi.png)
+  <img src="docs/images/live-anatomy-redmi.png" width="340" alt="raw model output before the fix: 'a middle class family' read as a previous phone">
+
+  *Before the fix: the raw model read "a middle class family" as a previous phone and a comparison.*
 
 - **Enough reviews, and the right mix.** A handful of reviews is not a sample, and which ones you get depends on the sort order (Most Helpful leans emotional, Negative is all complaints). So:
   - When the panel opens it reads the reviews on screen, then keeps reading the next review pages of that phone in the background (one page at a time) until about 50 reviews; *Read 30 more reviews* goes up to 100. The panel updates after every page.
-  - **Star reweighting (post-stratification).** Flipkart shows the star breakdown of *all* ratings (e.g. 3,534 ratings, 59% 5★). If the reviews we read have too many 1★ ones, each 1★ review counts less and each under-read 5★ review counts more: weight = share of that star level among all ratings ÷ share among the reviews read, clipped to 0.2–5. Aspect % positive, the verdict and the fault share use these weights. On a test page whose sample was 40% 1–2★ (vs 9.5% for the phone), the fault share went from 50% to 15%.
-  - **Shows how sure it is.** "Based on 50 of 253 reviews · reweighted to the phone's star mix", aspects mentioned by fewer than 3 reviews are greyed and left out of the verdict, and "people like me" compares against the phone's real average rating.
+  - **Star reweighting (post-stratification).** Flipkart shows the star breakdown of *all* ratings (e.g. 3,534 ratings, 59% 5★). If the reviews we read have too many 1★ ones, each 1★ review counts less and each under-read 5★ review counts more: weight = share of that star level among all ratings ÷ share among the reviews read, clipped to 0.2–5. Aspect % positive, the verdict and the fault share use these weights. On a test page whose sample was 40% 1–2★ (vs 9.5% for the phone), the fault share went from 50% to 18%; the report works this out step by step.
+  - **Shows how sure it is.** "Based on 50 of 231 reviews · reweighted to the phone's star mix", aspects mentioned by fewer than 3 reviews are greyed and left out of the verdict, and "people like me" compares against the phone's real average rating.
 - **Reads only what you open.** Only the phone you are viewing, only while the panel is open, at most 100 reviews.
 
 ## Limitations
