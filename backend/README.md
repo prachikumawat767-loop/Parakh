@@ -8,7 +8,7 @@ Phone review text → `phone_review_v1` JSON, using the Parakh LoRA adapter
 | `GET /health` | – | `backend` = `model` or `mock`, load error if any |
 | `POST /v1/extract` | `{"text": "..."}` | one extraction + list of post-processing fixes |
 | `POST /v1/batch` | `{"texts": ["...", "..."]}` | list of extractions (max 60) |
-| `POST /v1/analyze` | `{"product": "...", "reviews": [{"id": "r1", "text": "...", "rating": 4}]}` | per-review extraction, fixes and tags, plus the panel summary (verdict, aspects, durability, people-like-me) |
+| `POST /v1/analyze` | `{"product": "...", "reviews": [{"id": "r1", "text": "...", "rating": 4}], "star_histogram": {"5": 2101, "4": 800, "3": 300, "2": 120, "1": 214}, "total_reviews": 253}` (max 120 reviews; histogram optional) | per-review extraction, fixes and tags, plus the panel summary (verdict, aspects with weighted % positive, durability with weighted fault share, people-like-me, sampling info) |
 
 Interactive docs at `/docs`.
 

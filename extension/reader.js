@@ -162,5 +162,57 @@
     return findReviews(doc, false, idPrefix).map(({ card, bodyEl, ...rest }) => rest);
   }
 
-  window.ParakhReader = { findReviews, expandReadMore, productName, nextReviewsUrl, fetchReviews };
+  // Star breakdown of ALL ratings ("5 ★ ▇▇▇ 2,101"), used to reweight the reviews we read.
+  // Each row is the smallest block that starts with a star level and ends with a count; the bar has no text.
+  // Returns {"5": 2101, ...} only if all five levels are found, else null (then no reweighting).
+  function starHistogram(root = document, cards = []) {
+    const doc = root.ownerDocument || root;
+    const inCard = (el) => cards.some((c) => c.contains(el));
+    // the separate pieces of text inside an element, e.g. ["5", "★", "2,101"]
+    const pieces = (el) => {
+      const out = [], w = doc.createTreeWalker(el, 4 /* NodeFilter.SHOW_TEXT */);
+      for (let n = w.nextNode(); n; n = w.nextNode()) {
+        const t = n.nodeValue.trim();
+        if (t) out.push(t);
+      }
+      return out;
+    };
+    // a row = star level first, count last, nothing in between except a star sign
+    // (the bar has no text); or one piece like "5★ 2,101". A lone "214" is not a row.
+    const row = (el) => {
+      const p = pieces(el);
+      if (p.length === 1) {
+        const m = p[0].match(/^([1-5])\s*★\s*(\d[\d,]*)$/);
+        return m ? [m[1], m[2]] : null;
+      }
+      if (p.length < 2 || p.length > 4) return null;
+      const a = p[0].match(/^([1-5])\s*★?$/), b = p[p.length - 1].match(/^(\d[\d,]*)$/);
+      const mid = p.slice(1, -1).every((t) => /^★$/.test(t));
+      return a && b && mid ? [a[1], b[1]] : null;
+    };
+    const hist = {};
+    for (const el of root.querySelectorAll("div, li, span, a, tr")) {
+      if (inCard(el)) continue;
+      const r = row(el);
+      if (!r || hist[r[0]] !== undefined) continue;
+      // smallest block that is a row: skip it if a child is already a whole row
+      if (Array.from(el.children).some((ch) => row(ch))) continue;
+      hist[r[0]] = parseInt(r[1].replace(/,/g, ""), 10);
+    }
+    return ["1", "2", "3", "4", "5"].every((k) => hist[k] !== undefined) ? hist : null;
+  }
+
+  // "3,534 ratings and 253 reviews"
+  function totals(root = document) {
+    const m = (root.body ? root.body.textContent : root.textContent || "").match(
+      /([\d,]+)\s*ratings?\s*(?:and|&)\s*([\d,]+)\s*reviews?/i);
+    return m ? { ratings: parseInt(m[1].replace(/,/g, ""), 10), reviews: parseInt(m[2].replace(/,/g, ""), 10) } : null;
+  }
+
+  async function fetchDoc(url) {
+    const r = await fetch(url, { credentials: "include" });
+    return r.ok ? new DOMParser().parseFromString(await r.text(), "text/html") : null;
+  }
+
+  window.ParakhReader = { findReviews, expandReadMore, productName, nextReviewsUrl, fetchReviews, starHistogram, totals, fetchDoc };
 })();

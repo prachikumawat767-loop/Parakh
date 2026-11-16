@@ -129,11 +129,16 @@ python tests/e2e_test.py /tmp/fx /tmp/shots               # whole extension in h
 
   ![raw model output before the fix](docs/images/live-anatomy-redmi.png)
 
-- **Reads only what you open.** The extension analyses reviews on the page you are viewing; "Add next page" fetches at most 3 more pages, only when clicked.
+- **Enough reviews, and the right mix.** A handful of reviews is not a sample, and which ones you get depends on the sort order (Most Helpful leans emotional, Negative is all complaints). So:
+  - When the panel opens it reads the reviews on screen, then keeps reading the next review pages of that phone in the background (one page at a time) until about 50 reviews; *Read 30 more reviews* goes up to 100. The panel updates after every page.
+  - **Star reweighting (post-stratification).** Flipkart shows the star breakdown of *all* ratings (e.g. 3,534 ratings, 59% 5★). If the reviews we read have too many 1★ ones, each 1★ review counts less and each under-read 5★ review counts more: weight = share of that star level among all ratings ÷ share among the reviews read, clipped to 0.2–5. Aspect % positive, the verdict and the fault share use these weights. On a test page whose sample was 40% 1–2★ (vs 9.5% for the phone), the fault share went from 50% to 15%.
+  - **Shows how sure it is.** "Based on 50 of 253 reviews · reweighted to the phone's star mix", aspects mentioned by fewer than 3 reviews are greyed and left out of the verdict, and "people like me" compares against the phone's real average rating.
+- **Reads only what you open.** Only the phone you are viewing, only while the panel is open, at most 100 reviews.
 
 ## Limitations
 
 - Most Flipkart reviews are short first impressions, so the durability chart and the per-buyer-type ratings stay empty on many phones. They fill on older phones sorted by *Negative*.
+- Reweighting corrects the star mix, not everything: reviewers who write are still not a random sample of buyers, and 50–100 reviews give rough percentages, not precise ones.
 - Thermals, neutral opinions and failure triggers are rare in the training data and the weakest labels.
 - Training data is US Amazon reviews; Hinglish and Indian-store phrasing are tested only informally.
 - Reviews without a buyer badge are skipped on pages where other reviews have one.

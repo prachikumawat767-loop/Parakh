@@ -43,6 +43,11 @@ with sync_playwright() as p:
 
     page.locator("#parakh-root >> .launch").click()
     page.wait_for_selector("#parakh-root >> .verdict", timeout=20000)
+    first = page.locator("#parakh-root >> .status").inner_text()
+    print("FIRST  :", first)
+    # it keeps reading the next pages in the background; wait until the progress line is gone
+    page.wait_for_function(
+        "() => !document.querySelector('#parakh-root').shadowRoot.querySelector('.progress')", timeout=30000)
     page.wait_for_timeout(300)
     status = page.locator("#parakh-root >> .status").inner_text()
     verdict = page.locator("#parakh-root >> .verdict").inner_text()
@@ -57,13 +62,8 @@ with sync_playwright() as p:
     page.locator(".parakh-tags-host").nth(1).scroll_into_view_if_needed()
     page.screenshot(path=str(OUT / "tags_under_reviews.png"))
 
-    # load more: product page -> all-reviews page 1 (all duplicates) -> page 2
-    for i in range(2):
-        btn = page.locator("#parakh-root >> button[data-a=more]")
-        if btn.count():
-            btn.click()
-            page.wait_for_timeout(1500)
-            print(f"after load-more {i + 1}:", page.locator("#parakh-root >> .status").inner_text())
+    print("more button left:", page.locator("#parakh-root >> button[data-a=more]").count())
+    print("greyed aspects:", page.locator("#parakh-root >> .row.few").count())
     page.locator("#parakh-root >> .panel").screenshot(path=str(OUT / "panel_after_more.png"))
 
     # review anatomy: open the breakdown of review 2, click highlight 1

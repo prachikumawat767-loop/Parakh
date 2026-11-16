@@ -27,6 +27,8 @@
   .chip .lo { color: ${C.neg}; font-weight: 700; } .chip .hi { color: ${C.pos}; font-weight: 700; }
   .row { display: grid; grid-template-columns: 108px 1fr 38px; align-items: center; gap: 8px; padding: 5px 0; font-size: 12.5px; border-bottom: 1px solid #f0f2f4; }
   .row .l small { color: ${C.mute}; margin-left: 3px; }
+  .row.few { opacity: .45; }
+  .progress { font-size: 11.5px; color: #2b3a67; background: #eef2fb; border-radius: 5px; padding: 4px 8px; margin: -4px 0 10px; }
   .stack { display: flex; height: 9px; border-radius: 2px; overflow: hidden; background: #eef0f2; }
   .stack .n { background: #e4572e; } .stack .p { background: #2f54d9; }
   .row .pct { text-align: right; font-variant-numeric: tabular-nums; }
@@ -85,27 +87,40 @@
 
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  function aspectBars(aspects) {
-    const rows = aspects.filter((a) => a.pos + a.neg > 0 && a.category !== "overall").slice(0, 8);
+  function aspectBars(aspects, sampling) {
+    const rows = aspects.filter((a) => a.pos + a.neg > 0 && a.category !== "overall")
+      .sort((a, b) => a.few - b.few || b.total - a.total).slice(0, 9);
     if (!rows.length) return `<div class="note">No aspect opinions found.</div>`;
-    // one bar per aspect: complaints (left) vs praise (right), and the share that is positive
+    // one bar per aspect: complaints vs praise, as the (reweighted) share that is positive
+    const weighted = sampling && sampling.reweighted;
     return (
       `<div class="axis"><i class="kn">■ complaints</i><i class="kp">■ praise</i><i>% positive</i></div>` +
       rows
         .map((a) => {
-          const n = a.pos + a.neg;
-          const pct = Math.round((100 * a.pos) / n);
-          return `<div class="row"><span class="l">${esc(a.label)}<small>${a.total}</small></span>
-            <div class="stack" title="${a.neg} complaints, ${a.pos} praise">
-              <div class="n" style="width:${(100 * a.neg) / n}%"></div><div class="p" style="width:${(100 * a.pos) / n}%"></div></div>
-            <span class="pct">${pct}%</span></div>`;
+          const pct = a.pct_pos != null ? a.pct_pos : Math.round((100 * a.pos) / (a.pos + a.neg));
+          return `<div class="row${a.few ? " few" : ""}"><span class="l">${esc(a.label)}<small>${a.total}</small></span>
+            <div class="stack" title="${a.neg} complaints, ${a.pos} praise in the reviews read">
+              <div class="n" style="width:${100 - pct}%"></div><div class="p" style="width:${pct}%"></div></div>
+            <span class="pct">${a.few ? "few" : pct + "%"}</span></div>`;
         })
         .join("") +
-      `<div class="note">Number = reviews that mention the aspect.</div>`
+      `<div class="note">Number = reviews that mention the aspect. Grey = fewer than ${(sampling && sampling.min_mentions) || 3}, too few to judge.` +
+      (weighted ? ` % adjusted for the star mix of all ratings.` : "") + `</div>`
     );
   }
 
-  function durabilityChart(d) {
+  function samplingLine(s, meta, pages) {
+    if (!s) return "";
+    const of = s.total_reviews ? ` of ${s.total_reviews.toLocaleString("en-IN")}` : "";
+    const pg = pages > 1 ? ` · ${pages} pages` : "";
+    const w = s.reweighted
+      ? `<span title="Reviews from star levels we over-read count less, under-read ones count more (weights ${s.weight_range[0]}–${s.weight_range[1]}).">reweighted to the phone's star mix ✓</span>`
+      : `<span title="The star breakdown wasn't found on this page, so every review counts the same.">not reweighted</span>`;
+    return `<div class="status"><span class="badge ${meta.backend}">${meta.backend === "model" ? "MODEL" : "DEMO RULES"}</span>
+      Based on ${s.n_read}${of} reviews${pg} · ${w}</div>`;
+  }
+
+  function durabilityChart(d, weighted) {
     const W = 336, H = 150, padL = 22, padB = 22, padT = 14;
     const b = d.buckets;
     const max = Math.max(1, ...b.map((x) => x.degraded + x.dead));
@@ -127,13 +142,14 @@
     const legend = `<span style="color:${C.degraded}">■</span> got worse &nbsp; <span style="color:${C.dead}">■</span> stopped working`;
     const ns = d.time_not_stated.degraded + d.time_not_stated.dead;
     const dated = b.reduce((a, x) => a + x.degraded + x.dead, 0);
-    let note = `${d.n_reviews_with_failure} of ${d.n_reviews} reviews report a fault.`;
+    let note = `${d.n_reviews_with_failure} of ${d.n_reviews} reviews report a fault` +
+      (weighted && d.n_reviews_with_failure ? ` (about ${Math.round(100 * d.fault_share)}% after adjusting for the star mix).` : ".");
     if (ns) note += ` ${ns} fault${ns > 1 ? "s" : ""} with no time given (not shown).`;
     if (!dated) return `<div class="note">${legend}</div><div class="note">No fault reports that say when it happened. ${esc(note)}</div>`;
     return `${s}<div class="note">${legend}</div><div class="note">${esc(note)} Time = days after purchase, as written in the review.</div>`;
   }
 
-  function peopleLikeMe(p) {
+  function peopleLikeMe(p, weightedAvg) {
     if (!p.segments.length || p.overall_avg == null) return `<div class="note">Not enough reviews from any one kind of buyer yet.</div>`;
     return (
       `<div class="chips">` +
@@ -143,7 +159,7 @@
           return `<span class="chip">${esc(s.label)}: <span class="${cls}">${s.avg}★</span> <span style="color:${C.mute}">(${s.n})</span></span>`;
         })
         .join("") +
-      `</div><div class="note">vs ${p.overall_avg}★ across all ${p.n_rated} rated reviews here.</div>`
+      `</div><div class="note">vs ${p.overall_avg}★ ${weightedAvg ? "for the phone overall (all ratings)" : `across all ${p.n_rated} rated reviews here`}.</div>`
     );
   }
 
@@ -310,6 +326,7 @@
       this._wire();
     }
     showAnatomy(review, out) {
+      this.mode = "anatomy";
       this.panel.hidden = false;
       this.root.querySelector(".launch").style.display = "none";
       const ex = out.extraction, text = review.text;
@@ -353,19 +370,25 @@
     }
     render(res, opts) {
       const s = res.summary, m = res.meta;
+      const sm = s.sampling; // missing if the API is older than this extension
+      const weighted = !!(sm && sm.reweighted);
+      const keepScroll = this.mode === "summary" ? this.bodyEl.scrollTop : 0;
+      this.mode = "summary";
       this.bodyEl.innerHTML = `
-        <div class="status"><span class="badge ${m.backend}">${m.backend === "model" ? "MODEL" : "DEMO RULES"}</span>
-          ${m.n_reviews} reviews read · ${m.ms} ms${opts.pages > 1 ? ` · ${opts.pages} pages` : ""}</div>
+        ${sm ? samplingLine(sm, m, opts.pages) : `<div class="status"><span class="badge ${m.backend}">${m.backend === "model" ? "MODEL" : "DEMO RULES"}</span>
+          ${m.n_reviews} reviews read${opts.pages > 1 ? ` · ${opts.pages} pages` : ""}</div>`}
+        ${opts.progress ? `<div class="progress">${esc(opts.progress)}</div>` : ""}
         <p class="verdict">${esc(s.verdict)}</p>
-        <h3>Reviews from people like me</h3>${peopleLikeMe(s.people_like_me)}
-        <h3>What reviewers talk about</h3>${aspectBars(s.aspects)}
-        <h3>When problems show up</h3>${durabilityChart(s.durability)}
+        <h3>Reviews from people like me</h3>${peopleLikeMe(s.people_like_me, weighted)}
+        <h3>What reviewers talk about</h3>${aspectBars(s.aspects, sm)}
+        <h3>When problems show up</h3>${durabilityChart(s.durability, weighted)}
         ${this._actions(opts.canLoadMore)}
-        <div class="note" style="margin-top:12px">Reads only reviews you open on this site. Hover a tag under a review to see the exact words it came from.</div>`;
+        <div class="note" style="margin-top:12px">Reads only the phone you are viewing, up to 100 reviews. Hover a tag under a review to see the exact words it came from.</div>`;
       this._wire();
+      this.bodyEl.scrollTop = keepScroll;
     }
     _actions(more) {
-      return `<div class="actions"><button data-a="rescan">Re-read this page</button>${more ? `<button data-a="more">Add next page of reviews</button>` : ""}</div>`;
+      return `<div class="actions"><button data-a="rescan">Re-read this page</button>${more ? `<button data-a="more">Read 30 more reviews</button>` : ""}</div>`;
     }
     _wire() {
       this.bodyEl.querySelectorAll("button[data-a]").forEach((b) => {

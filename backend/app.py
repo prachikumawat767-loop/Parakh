@@ -17,7 +17,7 @@ import threading
 import time
 from collections import OrderedDict
 from contextlib import asynccontextmanager
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -32,7 +32,7 @@ MODE = os.getenv("PARAKH_MODE", "auto")
 DEFAULT_THRESHOLD = float(os.getenv("PARAKH_THRESHOLD", "0.5"))  # Track A: 0.5 for per-review display
 POSTPROCESS = os.getenv("PARAKH_POSTPROCESS", "1") != "0"
 MAX_CHARS = 4000
-MAX_REVIEWS = 60
+MAX_REVIEWS = 120
 
 state = {"backend": "loading", "error": None, "mod": None, "model": None, "load_seconds": None}
 lock = threading.Lock()  # one inference at a time; CPU-bound anyway
@@ -133,6 +133,9 @@ class AnalyzeIn(BaseModel):
     url: Optional[str] = None
     reviews: List[ReviewIn]
     threshold: Optional[float] = None
+    # star breakdown of ALL ratings of the phone, e.g. {"5": 2101, "4": 800, ...}; used to reweight
+    star_histogram: Optional[Dict[str, float]] = None
+    total_reviews: Optional[int] = None
 
 
 def _meta(t0):
@@ -178,5 +181,5 @@ def analyze(body: AnalyzeIn):
         "meta": _meta(t0) | {"n_reviews": len(revs), "product": body.product, "postprocess": POSTPROCESS},
         "reviews": [{"id": r.id, "extraction": o["ex"], "fixes": o["fixes"], "tags": aggregate.review_tags(o["ex"])}
                     for r, o in zip(revs, outs)],
-        "summary": aggregate.analyze(items),
+        "summary": aggregate.analyze(items, body.star_histogram, body.total_reviews),
     }

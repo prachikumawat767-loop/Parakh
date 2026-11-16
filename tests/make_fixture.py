@@ -37,6 +37,13 @@ def card(r, truncate=False):
 def page(reviews, title, link=None, truncate_ids=()):
     cards = "\n".join(f'<div class="cPHDOP col-12-12">{card(r, r["id"] in truncate_ids)}</div>' for r in reviews)
     more = f'<a href="{link}"><div class="_23J90q RcXBOT"><span>All {len(revs) + 5} reviews</span></div></a>' if link else ""
+    # star breakdown of all ratings, as Flipkart shows it: "5 ★ [bar] 2,101" (mostly 4-5★,
+    # while the sample reviews above lean negative, so reweighting has something to fix)
+    hist = "".join(
+        f'<li class="hx"><div class="s9"><div>{s}</div><span>★</span></div><div class="bar" style="width:{w}px"></div><div class="c9">{c}</div></li>'
+        for s, c, w in [(5, "2,101", 120), (4, "800", 46), (3, "300", 18), (2, "120", 8), (1, "214", 13)])
+    summary = (f'<div class="sum"><span>3,534 ratings and 253 reviews</span></div>'
+               f'<ul style="list-style:none;padding:0;margin:8px 0">{hist}</ul>')
     return f'''<!doctype html><html><head><meta charset="utf-8"><title>{title} - Buy Online | Flipkart.com</title>
 <style>body{{font-family:Arial;margin:0;background:#f1f3f6}} .hdr{{background:#2874f0;color:#fff;padding:14px 24px;font-weight:bold}}
 .wrap{{background:#fff;margin:16px auto;max-width:1100px;padding:24px}} .cPHDOP{{border-bottom:1px solid #f0f0f0;padding:16px 0}}</style></head>
@@ -44,6 +51,7 @@ def page(reviews, title, link=None, truncate_ids=()):
 <h1 class="_6EBuvT"><span class="VU-ZEz">{title}</span></h1>
 <div class="Nx9bqj CxhGGd" style="font-size:28px">₹17,999</div>
 <div style="margin-top:24px"><div class="_8-rIO3">Ratings &amp; Reviews</div>
+{summary}
 {cards}
 {more}</div></div></body></html>'''
 
