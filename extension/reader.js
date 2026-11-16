@@ -12,7 +12,10 @@
   const MORE = /^(read more|more|… more|\.\.\. more)$/i;
   const META = /^(read more|read less|more|less|permalink|report abuse|helpful|\d+\s*(days?|months?|years?)\s+ago)$/i;
   // lines that are never the review text: "Review for: Color … • RAM …", "Helpful for 161", counts, separators, stars
-  const SKIP = /^(review for\b|helpful for\b|\d+$|[•·|,★☆\s]+$)/i;
+  // "Name, City": short, one comma, no sentence punctuation
+  // (name: 1–4 words; city: starts with a capital, 1–3 words — "Nice phone, good camera" is not one)
+  const NAME_LINE = /^(?:[Ff]lipkart [Cc]ustomer|\p{L}[\p{L}.'’-]*(?: \p{L}[\p{L}.'’-]*){0,3})\s*,\s*\p{Lu}[\p{L}.'’-]*(?: [\p{L}.'’-]+){0,2}$/u;
+  const SKIP =/^(review for\b|helpful for\b|\d+$|[•·|,★☆\s]+$)/i;
   const DATE = /(\d+\s+(?:days?|months?|years?)\s+ago|[A-Z][a-z]{2},\s\d{4})/;
 
   const ownText = (el) =>
@@ -93,8 +96,40 @@
     }
 
     const start = titleEl || ratingEl;
-    const bodyEl = leaves.find((el) => (!start || after(start, el)) && isText(el)) || null;
+    const firstText = leaves.find((el) => (!start || after(start, el)) && isText(el)) || null;
+    // A long review can be split into several paragraph elements. Take the whole block the
+    // first paragraph sits in: climb while the parent still holds only review text (no rating,
+    // title, variant line, buyer line, helpful buttons, and not the card itself).
+    let bodyEl = firstText, nameWrap = null;
+    const forbidden = [ratingEl, titleEl, marker, ...variantBlocks].filter(Boolean);
+    while (bodyEl && bodyEl.parentElement && bodyEl.parentElement !== card) {
+      const p = bodyEl.parentElement;
+      if (forbidden.some((f) => p.contains(f))) break;
+      if (p.querySelector("button")) break;
+      if (Array.from(p.querySelectorAll("div, span, p")).some((el) => SKIP.test(ownText(el)) && /\D/.test(ownText(el)))) break;
+      // the reviewer line ("Rahul Meena, Kota", "Flipkart Customer, Bengaluru") is not review text
+      if (Array.from(p.querySelectorAll("div, span, p")).some((el) => !bodyEl.contains(el) && NAME_LINE.test(ownText(el)))) {
+        nameWrap = p;
+        break;
+      }
+      bodyEl = p;
+    }
     let text = bodyEl ? textOf(bodyEl, live) : "";
+    if (nameWrap) {
+      // paragraphs and the name share a wrapper: take paragraphs in order, stop at the name line
+      const parts = [text];
+      let lastEl = bodyEl;
+      for (const el of leaves) {
+        if (!nameWrap.contains(el) || !after(bodyEl, el) || bodyEl.contains(el) || after(el, lastEl)) continue;
+        if (parts.length > 1 && lastEl.contains(el)) continue;
+        if (NAME_LINE.test(ownText(el))) break;
+        if (!isText(el)) continue;
+        parts.push(textOf(el, live));
+        lastEl = el;
+      }
+      text = parts.join("\n");
+      bodyEl = lastEl;
+    }
     text = text.replace(/\s*(READ MORE|READ LESS|…\s*more|\.\.\.\s*more)\s*$/i, "").trim();
     text = text.replace(/^[.,;:\-–\s]+/, ""); // some reviews start with ". "
     if (title && text.startsWith(title)) text = text.slice(title.length).trim();

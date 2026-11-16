@@ -85,6 +85,9 @@ NEW_REVIEWS = [
     (2, "Heating problem", "Color Shadow Black",
      "Phone heats up a lot while playing BGMI. After 3 months the battery drains very fast. Service centre took 12 days to fix it.",
      "Rahul Meena, Kota", "1 month ago"),
+    (4, "Terrific", "Color Shadow Black",
+     "Hopefully this will help you\nNice phone, good camera\nBattery lasts a full day. After 2 months the display has a green line.",
+     "praveen kumar, Vellore", "2 months ago"),
     (1, "Worst", "Color Cloudline Blue",
      "Display stopped working after 2 months. Replacement took 15 days and the new one also has a green line on the screen. Very disappointed with the service and the build quality of this phone, would not recommend it to anyone.",
      "Sneha Gupta, Jaipur", "5 months ago"),
@@ -102,12 +105,18 @@ def new_page(title):
         body = (f'<div class="a1"><span class="b2" data-full="{t}">{html.escape(text[:120])}</span>'
                 f'<span class="c3" style="color:#2874f0;cursor:pointer" onclick="var d=this.previousElementSibling;d.textContent=d.dataset.full;this.remove()">... more</span></div>'
                 if long else f'<div class="a1"><span class="b2">{t}</span></div>')
+        if "\n" in text:  # multi-paragraph review: one element per paragraph, name in the same wrapper
+            paras = "".join(f'<div class="pp">{html.escape(p)}</div>' for p in text.split("\n"))
+            body = f'<div class="a1"><div class="w2">{paras}<div class="n1" style="color:#878787">{html.escape(who)}</div></div></div>'
+            who_html = ""
+        else:
+            who_html = f'<div class="n1" style="color:#878787">{html.escape(who)}</div>'
         cards.append(f'''
 <div class="x9" style="padding:18px 0;border-bottom:1px solid #eee">
   <div class="r1"><div class="s1">{star * rating}</div><div class="v1" style="color:#388e3c;font-weight:600">{rating}.0</div><div class="d1">•</div><div class="t1">{html.escape(ttl)}</div></div>
   <div class="g1" style="color:#878787"><span>Review for: </span><span>{color}</span><span> • </span><span>RAM 4 GB</span><span> • </span><span>Storage 64 GB</span></div>
   {body}
-  <div class="n1" style="color:#878787">{html.escape(who)}</div>
+  {who_html}
   <div class="h1x"><button>👍 Helpful for 9</button><button>👎 1</button></div>
   <div class="vp" style="color:#878787"><span>✔</span><span>Verified Purchase</span><span>· {when}</span></div>
 </div>''')
