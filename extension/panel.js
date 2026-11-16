@@ -28,6 +28,16 @@
   .row { display: grid; grid-template-columns: 108px 1fr 38px; align-items: center; gap: 8px; padding: 5px 0; font-size: 12.5px; border-bottom: 1px solid #f0f2f4; }
   .row .l small { color: ${C.mute}; margin-left: 3px; }
   .row.few { opacity: .45; }
+  .rlist { margin-top: 16px; border-top: 1px solid ${C.line}; padding-top: 8px; }
+  .rlist summary { cursor: pointer; font-size: 12px; font-weight: 700; color: #2b3a67; padding: 4px 0; }
+  .rl { border-bottom: 1px solid #f0f2f4; padding: 7px 0; font-size: 12px; }
+  .rl .rh { font-weight: 600; } .rl .rt { color: #444; margin: 2px 0 4px; }
+  .rl .off { font-size: 10px; color: ${C.mute}; border: 1px solid ${C.line}; border-radius: 8px; padding: 0 5px; margin-left: 4px; font-weight: 400; }
+  .rf { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .mt { font-size: 10.5px; padding: 1px 6px; border-radius: 8px; border: 1px solid; }
+  .mt.pos { color: ${C.pos}; border-color: #a8d5b5; } .mt.neg { color: ${C.neg}; border-color: #efb4ad; }
+  .mt.fail { color: #fff; background: ${C.dead}; border-color: ${C.dead}; } .mt.info { color: #3d4b6b; border-color: #c8cfdf; }
+  .bd2 { border: 0; background: none; color: #2b3a67; cursor: pointer; text-decoration: underline; font-size: 11.5px; padding: 0 2px; }
   .progress { font-size: 11.5px; color: #2b3a67; background: #eef2fb; border-radius: 5px; padding: 4px 8px; margin: -4px 0 10px; }
   .stack { display: flex; height: 9px; border-radius: 2px; overflow: hidden; background: #eef0f2; }
   .stack .n { background: #e4572e; } .stack .p { background: #2f54d9; }
@@ -383,14 +393,38 @@
         <h3>What reviewers talk about</h3>${aspectBars(s.aspects, sm)}
         <h3>When problems show up</h3>${durabilityChart(s.durability, weighted)}
         ${this._actions(opts.canLoadMore)}
+        ${this._reviewList(opts.reviews)}
         <div class="note" style="margin-top:12px">Reads only the phone you are viewing, up to 100 reviews. Hover a tag under a review to see the exact words it came from.</div>`;
       this._wire();
       this.bodyEl.scrollTop = keepScroll;
+    }
+    // every review that went into the summary, including ones read from other pages
+    _reviewList(list) {
+      this.reviewItems = list || [];
+      if (!this.reviewItems.length) return "";
+      const open = this.listOpen ? " open" : "";
+      const rows = this.reviewItems.map((x, i) => {
+        const r = x.review, tags = (x.out.tags || []).slice(0, 3).map((t) => `<span class="mt ${t.kind}">${esc(t.text)}</span>`).join("");
+        const snip = r.text.length > 110 ? r.text.slice(0, 110) + "…" : r.text;
+        return `<div class="rl"><div class="rh">${r.rating ? `<b>${r.rating}★</b> ` : ""}${esc(r.title || "")}
+            ${x.onScreen ? "" : `<span class="off" title="Read from another review page">other page</span>`}</div>
+          <div class="rt">${esc(snip)}</div>
+          <div class="rf">${tags}<button class="bd2" data-r="${i}">Breakdown ›</button></div></div>`;
+      }).join("");
+      return `<details class="rlist"${open}><summary>All ${this.reviewItems.length} reviews read</summary>${rows}</details>`;
     }
     _actions(more) {
       return `<div class="actions"><button data-a="rescan">Re-read this page</button>${more ? `<button data-a="more">Read 30 more reviews</button>` : ""}</div>`;
     }
     _wire() {
+      const det = this.bodyEl.querySelector("details.rlist");
+      if (det) det.addEventListener("toggle", () => (this.listOpen = det.open));
+      this.bodyEl.querySelectorAll("button[data-r]").forEach((b) => {
+        b.onclick = () => {
+          const x = this.reviewItems[+b.dataset.r];
+          if (x) this.showAnatomy(x.review, x.out);
+        };
+      });
       this.bodyEl.querySelectorAll("button[data-a]").forEach((b) => {
         b.onclick = () => (b.dataset.a === "more" ? this.handlers.onMore() : this.handlers.onRescan());
       });

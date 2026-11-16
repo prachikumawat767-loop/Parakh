@@ -79,6 +79,30 @@ with sync_playwright() as p:
     page.locator("#parakh-root >> .back").click()
     print("back to summary:", page.locator("#parakh-root >> .verdict").count() == 1)
 
+    # "Reviews read" list: every review, including ones read from other pages, has a Breakdown
+    page.locator("#parakh-root >> details.rlist summary").click()
+    n_list = page.locator("#parakh-root >> .rl").count()
+    n_other = page.locator("#parakh-root >> .rl .off").count()
+    page.locator("#parakh-root >> .rl:has(.off) button.bd2").first.click()
+    page.wait_for_selector("#parakh-root >> .rv", timeout=5000)
+    print(f"list: {n_list} reviews ({n_other} from other pages); breakdown of an other-page review opens:",
+          page.locator("#parakh-root >> .rv").count() == 1)
+    page.locator("#parakh-root >> .back").click()
+
+    # infinite scroll: Flipkart adds a review card after the panel opened -> it gets tags + Breakdown
+    before = page.locator(".parakh-tags-host").count()
+    page.evaluate("""() => {
+        const cards = document.querySelectorAll('.cPHDOP');
+        const c = cards[cards.length - 1].cloneNode(true);
+        c.querySelectorAll('.parakh-tags-host').forEach(n => n.remove());
+        c.querySelector('.ZmyHeo div div').textContent =
+            'Scrolled in later: the speaker crackles at full volume after 2 months and the charger heats up.';
+        cards[cards.length - 1].after(c);
+    }""")
+    page.wait_for_timeout(4000)
+    print("tag rows before/after a card is added:", before, "->", page.locator(".parakh-tags-host").count(),
+          "| status:", page.locator("#parakh-root >> .status").inner_text())
+
     # newer React-Native-Web style layout: no "Certified Buyer", "4 ★" badges, "... more"
     page2 = ctx.new_page()
     page2.goto("https://www.flipkart.com/aurora-rnw/p/itm999?pid=MOB2")
